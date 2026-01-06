@@ -1,0 +1,41 @@
+# .gitignore
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Sensitive data - DO NOT COMMIT
+.env
+.env.local
+.secrets/
+
+# API keys and secrets
+api_keys.json
+config.json
+credentials.json
+
+# Temporary files
+*.tmp
+*.temp
+
+# Keep the database - we WANT to commit this
+# !trading_signals.db

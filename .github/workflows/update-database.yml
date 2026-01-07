@@ -10,11 +10,17 @@ on:
 jobs:
   update-database:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
     
-    - name: Set up Python
+    - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
@@ -22,21 +28,80 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install ccxt==4.2.45 pandas==2.1.4 numpy==1.24.4 python-dotenv==1.0.0 requests==2.31.0
     
-    - name: Set up environment variables
+    - name: Create .env file
       run: |
-        echo "GATE_API_KEY=${{ secrets.GATE_API_KEY }}" >> .env
-        echo "GATE_API_SECRET=${{ secrets.GATE_API_SECRET }}" >> .env
-        echo "TELEGRAM_BOT_TOKEN=" >> .env
-        echo "TELEGRAM_CHAT_ID=" >> .env
+        cat > .env << EOF
+        GATE_API_KEY=${{ secrets.GATE_API_KEY }}
+        GATE_API_SECRET=${{ secrets.GATE_API_SECRET }}
+        TELEGRAM_BOT_TOKEN=
+        TELEGRAM_CHAT_ID=
+        DATABASE_PATH=trading_signals.db
+        EOF
+        echo "✅ .env file created"
     
-    - name: Update database
-      run: python update_db.py
-    
-    - name: Commit and push if database changed
+    - name: Run database update
+      id: update
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        echo "🔄 Running database update..."
+        python scheduler_v2.py
+        
+        # Check if database was updated
+        if [ -f "trading_signals.db" ]; then
+          DB_SIZE=$(stat -f%z trading_signals.db 2>/dev/null || stat -c%s trading_signals.db)
+          echo "📊 Database size: $DB_SIZE bytes"
+          echo "updated=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Database file not found"
+          echo "updated=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Configure Git
+      if: steps.update.outputs.updated == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+    
+    - name: Check for changes
+      if: steps.update.outputs.updated == 'true'
+      id: git-check
+      run: |
+        git status --porcelain
+        
+        # Check if database file has changes
+        if git diff --name-only HEAD | grep -q "trading_signals.db"; then
+          echo "📈 Database file has changes"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "📊 No changes in database file"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Commit and push changes
+      if: steps.git-check.outputs.has_changes == 'true'
+      run: |
+        echo "🚀 Committing database changes..."
+        
+        # Stage only the database file
         git add trading_signals.db
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update database [skip ci]" && git push)
+        
+        # Create commit
+        TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        COMMIT_MSG="🤖 Auto-update trading database - $TIMESTAMP [skip ci]"
+        
+        git commit -m "$COMMIT_MSG"
+        
+        echo "✅ Changes committed: $COMMIT_MSG"
+        
+        # Push changes
+        echo "📤 Pushing to GitHub..."
+        git push
+        
+        echo "🎉 Successfully updated and pushed database!"
+    
+    - name: Skip push if no changes
+      if: steps.git-check.outputs.has_changes == 'false'
+      run: |
+        echo "📊 No changes detected in database file"
+        echo "🔄 Skipping commit and push"

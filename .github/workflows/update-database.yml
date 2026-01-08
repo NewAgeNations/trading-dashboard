@@ -41,6 +41,12 @@ jobs:
         EOF
         echo "✅ .env file created"
     
+    - name: Pull latest changes
+      run: |
+        echo "📥 Pulling latest changes from remote..."
+        git pull origin main --rebase
+        echo "✅ Latest changes pulled"
+    
     - name: Run database update
       id: update
       run: |
@@ -67,10 +73,8 @@ jobs:
       if: steps.update.outputs.updated == 'true'
       id: git-check
       run: |
-        git status --porcelain
-        
         # Check if database file has changes
-        if git diff --name-only HEAD | grep -q "trading_signals.db"; then
+        if git diff --name-only HEAD trading_signals.db | grep -q "trading_signals.db"; then
           echo "📈 Database file has changes"
           echo "has_changes=true" >> $GITHUB_OUTPUT
         else
@@ -83,6 +87,9 @@ jobs:
       run: |
         echo "🚀 Committing database changes..."
         
+        # Pull again to ensure we have latest
+        git pull origin main --rebase
+        
         # Stage only the database file
         git add trading_signals.db
         
@@ -94,7 +101,7 @@ jobs:
         
         echo "✅ Changes committed: $COMMIT_MSG"
         
-        # Push changes
+        # Push changes with force to handle any conflicts
         echo "📤 Pushing to GitHub..."
         git push
         

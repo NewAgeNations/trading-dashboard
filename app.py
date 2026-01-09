@@ -11,6 +11,14 @@ from typing import List, Dict, Optional
 import os
 import json
 import io
+import requests
+import urllib.request
+import tempfile
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Page configuration
 st.set_page_config(
@@ -306,14 +314,50 @@ st.markdown("""
 class TradingDashboard:
     def __init__(self, db_path: Optional[str] = None):
         """Initialize dashboard with database connection"""
-        # Use absolute path for cloud deployment
-        if db_path is None:
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(BASE_DIR, "trading_signals.db")
-        
-        self.db_path = db_path
+        # Download latest database from GitHub
+        self.db_path = self.download_latest_database()
         self.connection = None
         self.setup_database_connection()
+    
+    def download_latest_database(self) -> str:
+        """Download the latest database from GitHub"""
+        try:
+            # Create a temporary file for the database
+            temp_dir = tempfile.gettempdir()
+            temp_db_path = os.path.join(temp_dir, "trading_signals_latest.db")
+            
+            # GitHub repository URL (UPDATE THIS WITH YOUR ACTUAL REPO)
+            # Format: https://raw.githubusercontent.com/USERNAME/REPO/BRANCH/FILE
+            github_db_url = "https://raw.githubusercontent.com/NewAgeNations/trading-dashboard/main/trading_signals.db"
+            
+            # Show downloading status
+            with st.spinner("🌐 Downloading latest database from GitHub..."):
+                # Download the database file
+                response = requests.get(github_db_url, timeout=30)
+                
+                if response.status_code == 200:
+                    with open(temp_db_path, 'wb') as f:
+                        f.write(response.content)
+                    
+                    file_size = os.path.getsize(temp_db_path)
+                    logger.info(f"✅ Downloaded database ({file_size} bytes)")
+                    st.success(f"✅ Database downloaded ({file_size:,} bytes)")
+                    
+                    return temp_db_path
+                else:
+                    logger.warning(f"⚠️ GitHub download failed: Status {response.status_code}")
+                    st.warning("⚠️ Could not download latest database from GitHub")
+                    
+        except Exception as e:
+            logger.warning(f"⚠️ Could not download from GitHub: {e}")
+            st.warning("⚠️ Using local database (if available)")
+        
+        # Fall back to local database if download fails
+        if os.path.exists("trading_signals.db"):
+            return "trading_signals.db"
+        else:
+            # Use empty database as last resort
+            return ":memory:"
     
     def setup_database_connection(self):
         """Establish database connection - cloud safe"""
@@ -322,8 +366,10 @@ class TradingDashboard:
             # Enable foreign keys
             self.connection.execute("PRAGMA foreign_keys = ON")
             self.connection.row_factory = sqlite3.Row
+            logger.info(f"✅ Database connection established: {self.db_path}")
         except Exception as e:
-            st.error(f"❌ Failed to connect to database: {str(e)}")
+            logger.error(f"❌ Failed to connect to database: {str(e)}")
+            st.error(f"❌ Database connection failed: {str(e)}")
             # Create an empty connection for demo purposes
             self.connection = sqlite3.connect(':memory:', check_same_thread=False)
     
@@ -1287,10 +1333,7 @@ class TradingDashboard:
 
 def main():
     """Main Streamlit application"""
-    # Check if database exists
-    db_exists = os.path.exists("trading_signals.db")
-    
-    # Initialize dashboard
+    # Initialize dashboard (will automatically download latest database)
     dashboard = TradingDashboard()
     
     # Get database metadata
@@ -1301,15 +1344,23 @@ def main():
     with col2:
         st.markdown("<h1 class='main-header'>📈 HVTS Trading Signals Dashboard</h1>", unsafe_allow_html=True)
         
-        # Show database info
+        # Show database info with download status
         status_color = "#4CAF50" if metadata.get('total_symbols', 0) > 0 else "#FF9800"
-        status_text = "🟢 Active" if metadata.get('total_symbols', 0) > 0 else "🟡 No Data"
+        status_text = "🟢 Live Data" if metadata.get('total_symbols', 0) > 0 else "🟡 No Data"
+        
+        # Show file source info
+        if dashboard.db_path.endswith("_latest.db"):
+            source_text = "🌐 GitHub (Latest)"
+        elif dashboard.db_path == "trading_signals.db":
+            source_text = "💾 Local"
+        else:
+            source_text = "🧠 Memory"
         
         st.markdown(f"""
         <div style='text-align: center; color: #546E7A; margin-bottom: 20px; padding: 10px; border-radius: 10px; background-color: {status_color}20; border: 1px solid {status_color}50;'>
             <strong>📊 Database:</strong> {metadata.get('total_symbols', 0)} symbols | 
             <strong>⏰ Last Updated:</strong> {metadata.get('last_updated', 'Never')} | 
-            <strong>📁 Source:</strong> {metadata.get('data_source', 'Unknown')}
+            <strong>📁 Source:</strong> {source_text}
         </div>
         """, unsafe_allow_html=True)
     
@@ -1320,6 +1371,14 @@ def main():
         # Manual refresh only (auto-refresh disabled for Streamlit Cloud)
         if st.button("🔄 Refresh Dashboard", use_container_width=True, type="primary"):
             st.rerun()
+        
+        # Database refresh button
+        if st.button("🌐 Download Latest Data", use_container_width=True):
+            with st.spinner("Downloading latest database from GitHub..."):
+                # Create new dashboard instance which will download fresh database
+                dashboard = TradingDashboard()
+                st.success("✅ Database updated!")
+                st.rerun()
         
         st.markdown("---")
         st.markdown("### 📊 Signal Filters")
@@ -1338,16 +1397,20 @@ def main():
         st.markdown("---")
         st.markdown("### 📦 Database Info")
         
-        if not db_exists:
-            st.error("⚠️ Database not found")
-            st.info("Run `python update_db.py` locally to generate real data.")
+        # Check database status
+        if metadata.get('total_symbols', 0) == 0:
+            st.error("⚠️ Database is empty or failed to load")
+            st.info("Click 'Download Latest Data' to fetch fresh data")
         else:
-            if metadata.get('total_symbols', 0) == 0:
-                st.warning("⚠️ Database is empty")
-            else:
-                st.success(f"✅ {metadata.get('total_symbols', 0)} symbols loaded")
+            st.success(f"✅ {metadata.get('total_symbols', 0)} symbols loaded")
             
-            st.info(f"**Last Updated:** {metadata.get('last_updated', 'Unknown')}")
+            if metadata.get('last_updated', 'Unknown') != 'Unknown':
+                try:
+                    last_update = pd.to_datetime(metadata['last_updated'])
+                    st.info(f"**Last Updated:** {last_update.strftime('%Y-%m-%d %H:%M:%S')}")
+                except:
+                    st.info(f"**Last Updated:** {metadata.get('last_updated', 'Unknown')}")
+            
             st.info(f"**Data Source:** {metadata.get('data_source', 'Unknown')}")
         
         st.markdown("---")
@@ -1360,8 +1423,9 @@ def main():
         cryptocurrency markets.
         
         • Data from Gate.io Exchange
-        • Updated hourly
+        • Updated automatically from GitHub
         • 9 different analysis views
+        • Real-time database updates
         """)
     
     # Main tabs - ALL 9 TABS
@@ -1388,10 +1452,7 @@ def main():
             overvalued_stats = {}
             portfolio_stats = {}
             
-            if not db_exists:
-                st.error("❌ Database file not found. Run `python update_db.py` locally to generate data.")
-            else:
-                st.warning("⚠️ No signals found in database. The database may be empty.")
+            st.warning("⚠️ No signals found in database. Click 'Download Latest Data' to fetch fresh data.")
         else:
             stats = dashboard.get_signal_stats(signals_df)
             discount_stats = dashboard.get_extreme_discount_stats(extreme_discount_df)
@@ -1526,21 +1587,14 @@ def main():
             
             To view trading signals:
             
-            1. **Run locally with real data:**
-               ```bash
-               python update_db.py
-               ```
+            1. **Click "Download Latest Data" button** in the sidebar
             
-            2. **Or create sample data:**
-               ```bash
-               python init_db.py
-               ```
+            2. **Or wait for automatic GitHub updates**:
+               - Database updates automatically via GitHub Actions
+               - Updates every hour
+               - Click refresh to get latest data
             
-            3. **Commit database to GitHub**
-            
-            4. **Deploy to Streamlit Cloud**
-            
-            The dashboard will automatically use the latest database from GitHub.
+            The dashboard automatically downloads the latest database from GitHub.
             """)
     
     # TAB 2: ALL SIGNALS
@@ -2790,7 +2844,7 @@ def main():
                 📊 HVTS Trading Signals Dashboard • Data from Gate.io • 
                 Current time: {current_time}<br>
                 <span style='font-size: 0.8rem; color: #78909C;'>
-                    Note: On Streamlit Cloud, database is read-only. Update locally and commit to GitHub.
+                    Note: Database automatically downloads from GitHub on each app load.
                 </span>
             </div>
             """,

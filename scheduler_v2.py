@@ -744,52 +744,128 @@ class TradingSignalGenerator:
             return "Neutral", get_emoji('neutral')
     
     def calculate_pivot_zones(self, df: pd.DataFrame) -> Dict[str, float]:
-        """Calculate pivot zones from recent price action"""
+        """Calculate precise pivot zones according to pseudocode specification"""
         try:
+            # Use daily data for pivot zone calculation
             if len(df) < 20:
                 recent_data = df
             else:
-                recent_data = df.tail(20)
+                recent_data = df.tail(20)  # Last 20 daily candles
             
-            recent_low = recent_data['low'].min()
-            recent_high = recent_data['high'].max()
+            # Calculate recent high and low
+            recent_low = float(recent_data['low'].min())
+            recent_high = float(recent_data['high'].max())
             
-            if recent_low >= recent_high:
-                recent_high = recent_low * 1.05  # Ensure high > low
+            # Ensure we have a valid price range
+            if recent_high <= recent_low:
+                recent_high = recent_low * 1.05  # Add 5% margin if high <= low
             
-            diff = recent_high - recent_low
+            price_range = recent_high - recent_low
             
-            return {
-                'extreme_discount': recent_low + 0.1 * diff,
-                'accumulation_zone': recent_low + 0.3 * diff,
-                'reversal_zone': recent_low + 0.5 * diff,
-                'strong_support': recent_low + 0.7 * diff
+            # Calculate zones as percentages of range from recent_low
+            zones = {
+                'extreme_discount': recent_low + 0.1 * price_range,
+                'accumulation_lower': recent_low + 0.1 * price_range,
+                'accumulation_upper': recent_low + 0.3 * price_range,
+                'reversal_zone': recent_low + 0.5 * price_range,
+                'strong_support': recent_low + 0.7 * price_range,
+                'recent_low': recent_low,
+                'recent_high': recent_high,
+                'price_range': price_range
             }
+            
+            # Calculate accumulation mid-range
+            zones['accumulation_mid_range'] = (zones['accumulation_lower'] + zones['accumulation_upper']) / 2
+            
+            logger.debug(f"Pivot zones calculated:")
+            logger.debug(f"  Recent Low: ${recent_low:.4f}, Recent High: ${recent_high:.4f}")
+            logger.debug(f"  Extreme Discount: ${zones['extreme_discount']:.4f}")
+            logger.debug(f"  Accumulation: ${zones['accumulation_lower']:.4f} - ${zones['accumulation_upper']:.4f}")
+            logger.debug(f"  Reversal Zone: ${zones['reversal_zone']:.4f}")
+            logger.debug(f"  Strong Support: ${zones['strong_support']:.4f}")
+            
+            return zones
             
         except Exception as e:
             logger.error(f"Error calculating pivot zones: {str(e)}")
             return {}
     
-    def get_pivot_zone(self, current_price: float, pivot_levels: Dict[str, float]) -> Tuple[str, str]:
-        """Get current pivot zone"""
+    def get_pivot_zone(self, current_price: float, pivot_levels: Dict[str, float]) -> Tuple[str, str, Dict[str, float]]:
+        """Get current pivot zone with detailed zone information"""
         try:
-            if not pivot_levels:
-                return "Unknown", "⚪"
+            if not pivot_levels or 'extreme_discount' not in pivot_levels:
+                return "Unknown", get_emoji('neutral'), {}
             
-            if 'extreme_discount' in pivot_levels and current_price <= pivot_levels['extreme_discount']:
-                return "Extreme Discount", get_emoji('up')
-            elif 'accumulation_zone' in pivot_levels and current_price <= pivot_levels['accumulation_zone']:
-                return "Accumulation Zone", get_emoji('up')
-            elif 'reversal_zone' in pivot_levels and current_price <= pivot_levels['reversal_zone']:
-                return "Reversal Zone", get_emoji('neutral')
-            elif 'strong_support' in pivot_levels and current_price <= pivot_levels['strong_support']:
-                return "Strong Support", get_emoji('down')
+            # Determine current zone
+            extreme_discount = pivot_levels['extreme_discount']
+            accumulation_upper = pivot_levels.get('accumulation_upper', extreme_discount * 1.2)
+            reversal_zone = pivot_levels.get('reversal_zone', accumulation_upper * 1.2)
+            strong_support = pivot_levels.get('strong_support', reversal_zone * 1.2)
+            
+            # Determine zone based on current price
+            if current_price <= extreme_discount:
+                zone_name = "Extreme Discount"
+                zone_emoji = get_emoji('discount')
+                is_bullish_zone = True
+            elif current_price <= accumulation_upper:
+                zone_name = "Accumulation Zone"
+                zone_emoji = get_emoji('up')
+                is_bullish_zone = True
+            elif current_price <= reversal_zone:
+                zone_name = "Reversal Zone"
+                zone_emoji = get_emoji('neutral')
+                is_bullish_zone = False
+            elif current_price <= strong_support:
+                zone_name = "Strong Support"
+                zone_emoji = get_emoji('down')
+                is_bullish_zone = False
             else:
-                return "Above Buy Zone", get_emoji('down')
-                
+                zone_name = "Above Buy Zone"
+                zone_emoji = get_emoji('overvalued')
+                is_bullish_zone = False
+            
+            # Prepare zone details
+            zone_details = {
+                'zone_name': zone_name,
+                'zone_emoji': zone_emoji,
+                'is_bullish_zone': is_bullish_zone,
+                'extreme_discount': extreme_discount,
+                'accumulation_lower': pivot_levels.get('accumulation_lower', extreme_discount),
+                'accumulation_upper': accumulation_upper,
+                'accumulation_mid_range': pivot_levels.get('accumulation_mid_range', 
+                    (pivot_levels.get('accumulation_lower', extreme_discount) + accumulation_upper) / 2),
+                'reversal_zone': reversal_zone,
+                'strong_support': strong_support,
+                'recent_low': pivot_levels.get('recent_low', 0),
+                'recent_high': pivot_levels.get('recent_high', 0),
+                'price_range': pivot_levels.get('price_range', 0)
+            }
+            
+            return zone_name, zone_emoji, zone_details
+            
         except Exception as e:
             logger.error(f"Error getting pivot zone: {str(e)}")
-            return "Unknown", "⚪"
+            return "Unknown", get_emoji('neutral'), {}
+    
+    def get_pivot_zone_signal(self, zone_details: Dict[str, Any]) -> Tuple[str, str]:
+        """Get pivot zone signal (Bullish/Bearish/Neutral) based on zone"""
+        try:
+            if not zone_details:
+                return "Neutral", get_emoji('neutral')
+            
+            zone_name = zone_details.get('zone_name', '')
+            is_bullish_zone = zone_details.get('is_bullish_zone', False)
+            
+            if zone_name in ["Extreme Discount", "Accumulation Zone"] and is_bullish_zone:
+                return "Bullish", get_emoji('up')
+            elif zone_name in ["Above Buy Zone", "Strong Support"] and not is_bullish_zone:
+                return "Bearish", get_emoji('down')
+            else:
+                return "Neutral", get_emoji('neutral')
+                
+        except Exception as e:
+            logger.error(f"Error getting pivot zone signal: {str(e)}")
+            return "Neutral", get_emoji('neutral')
     
     def calculate_regression_metrics(self, df: pd.DataFrame, coeffs: np.ndarray) -> Tuple[float, float, float]:
         """Calculate regression quality metrics"""
@@ -1002,7 +1078,7 @@ class TradingSignalGenerator:
             return False
     
     def generate_signal(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Generate trading signal for a symbol with real data only"""
+        """Generate trading signal for a symbol with real data only - Updated for precise pivot zones"""
         logger.info(f"{get_emoji('signal')} Generating signal for {symbol}")
         
         try:
@@ -1057,15 +1133,11 @@ class TradingSignalGenerator:
                 # Support and resistance
                 support, resistance = self.calculate_support_resistance(daily_data)
                 
-                # Determine trend
-                price_change_1d = ((forecast_1d - current_price) / current_price) * 100
-                if price_change_1d > 2:
-                    poly_signal, poly_emoji = "Strong Bullish", get_emoji('up')
-                elif price_change_1d > 0:
+                # Determine trend based on pseudocode logic (1% threshold)
+                price_change_1d_pct = ((forecast_1d - current_price) / current_price) * 100
+                if price_change_1d_pct > 1.0:  # 1% increase threshold from pseudocode
                     poly_signal, poly_emoji = "Bullish", get_emoji('up')
-                elif price_change_1d < -2:
-                    poly_signal, poly_emoji = "Strong Bearish", get_emoji('down')
-                elif price_change_1d < 0:
+                elif price_change_1d_pct < -1.0:  # 1% decrease threshold
                     poly_signal, poly_emoji = "Bearish", get_emoji('down')
                 else:
                     poly_signal, poly_emoji = "Neutral", get_emoji('neutral')
@@ -1092,18 +1164,29 @@ class TradingSignalGenerator:
                 r_squared = confidence = trend_strength = 0
                 support = resistance = current_price
             
-            # RSI Analysis (4-hour)
+            # RSI Analysis (4-hour) - Updated thresholds from pseudocode
             rsi_values = self.calculate_rsi(four_hour_data['close'])
             current_rsi = rsi_values.iloc[-1] if not rsi_values.empty else 50
-            rsi_zone, rsi_emoji = self.get_rsi_zone(current_rsi)
+            
+            # Get RSI zone for display
+            rsi_zone, rsi_zone_emoji = self.get_rsi_zone(current_rsi)
+            
+            # Get RSI signal based on pseudocode thresholds
+            if current_rsi < 40:
+                rsi_signal, rsi_signal_emoji = "Bullish", get_emoji('up')
+            elif current_rsi > 60:
+                rsi_signal, rsi_signal_emoji = "Bearish", get_emoji('down')
+            else:
+                rsi_signal, rsi_signal_emoji = "Neutral", get_emoji('neutral')
             
             # MACD Analysis (4-hour)
             macd_line, signal_line, macd_histogram = self.calculate_macd(four_hour_data['close'])
             macd_signal, macd_emoji = self.get_macd_signal(macd_line, signal_line, macd_histogram)
             
-            # Pivot Zone Analysis
+            # NEW: Precise Pivot Zone Analysis
             pivot_levels = self.calculate_pivot_zones(daily_data)
-            pivot_zone, pivot_emoji = self.get_pivot_zone(current_price, pivot_levels)
+            pivot_zone, pivot_emoji, zone_details = self.get_pivot_zone(current_price, pivot_levels)
+            pivot_signal, pivot_signal_emoji = self.get_pivot_zone_signal(zone_details)
             
             # Save Fibonacci data with actual pivot zone
             self.save_fibonacci_data_to_db(
@@ -1112,30 +1195,46 @@ class TradingSignalGenerator:
                 f"{pivot_emoji} {pivot_zone}"
             )
             
-            # Combined signal analysis
-            signals = [poly_1h_signal, fib_1h_signal, fib_signal, poly_signal, 
-                      rsi_zone, macd_signal, pivot_zone]
+            # Combined signal analysis - Updated for 3+ signal threshold from pseudocode
+            # Convert signals to consistent format for counting
+            signal_list = [
+                ('Poly 1H', poly_1h_signal),
+                ('Fibonacci', fib_signal),
+                ('Poly Daily', poly_signal),
+                ('RSI', rsi_signal),
+                ('MACD', macd_signal),
+                ('Pivot Zone', pivot_signal)
+            ]
             
             # Count bullish and bearish signals
-            bull_keywords = ['bull', 'over', 'discount', 'accumulation']
-            bear_keywords = ['bear', 'above', 'overbought', 'overvalued']
+            bull_keywords = ['bull', 'up']
+            bear_keywords = ['bear', 'down']
             
-            bull_count = sum(1 for s in signals if any(k in str(s).lower() for k in bull_keywords))
-            bear_count = sum(1 for s in signals if any(k in str(s).lower() for k in bear_keywords))
+            bull_count = 0
+            bear_count = 0
             
-            # Determine overall signal
-            if bull_count >= 6:
-                overall_signal, overall_emoji = "STRONG BUY", get_emoji('up')
-            elif bull_count >= 5:
+            for _, signal in signal_list:
+                signal_str = str(signal).lower()
+                if any(k in signal_str for k in bull_keywords):
+                    bull_count += 1
+                elif any(k in signal_str for k in bear_keywords):
+                    bear_count += 1
+            
+            # Determine overall signal based on pseudocode logic (3+ signals)
+            if bull_count >= 3 and zone_details.get('is_bullish_zone', False):
                 overall_signal, overall_emoji = "BUY", get_emoji('up')
-            elif bear_count >= 6:
-                overall_signal, overall_emoji = "STRONG SELL", get_emoji('down')
-            elif bear_count >= 5:
+            elif bear_count >= 3 and not zone_details.get('is_bullish_zone', False):
                 overall_signal, overall_emoji = "SELL", get_emoji('down')
             else:
                 overall_signal, overall_emoji = "NEUTRAL", get_emoji('neutral')
             
-            # Create signal dictionary
+            # STRONG signals based on additional criteria
+            if bull_count >= 4 and pivot_zone in ["Extreme Discount", "Accumulation Zone"]:
+                overall_signal, overall_emoji = "STRONG BUY", get_emoji('up')
+            elif bear_count >= 4 and pivot_zone in ["Above Buy Zone", "Strong Support"]:
+                overall_signal, overall_emoji = "STRONG SELL", get_emoji('down')
+            
+            # Create signal dictionary with enhanced zone details
             signal_data = {
                 'symbol': symbol,
                 'current_price': current_price,
@@ -1143,13 +1242,17 @@ class TradingSignalGenerator:
                 'fib_15m_signal': f"{fib_1h_emoji} {fib_1h_signal}",
                 'fib_signal': f"{fib_emoji} {fib_signal}",
                 'poly_signal': f"{poly_emoji} {poly_signal}",
-                'rsi_zone': f"{rsi_emoji} {rsi_zone} (RSI: {current_rsi:.2f})",
+                'rsi_zone': f"{rsi_zone_emoji} {rsi_zone} (RSI: {current_rsi:.2f})",
+                'rsi_signal': f"{rsi_signal_emoji} {rsi_signal}",
                 'macd_signal': f"{macd_emoji} {macd_signal}",
                 'pivot_zone': f"{pivot_emoji} {pivot_zone}",
+                'pivot_signal': f"{pivot_signal_emoji} {pivot_signal}",
                 'overall_signal': f"{overall_emoji} {overall_signal}",
                 'overall_signal_type': overall_signal,
                 'pivot_zone_type': pivot_zone,
                 'pivot_emoji': pivot_emoji,
+                'zone_details': zone_details,
+                'signal_counts': {'bullish': bull_count, 'bearish': bear_count, 'total': len(signal_list)},
                 'forecast_1h': poly_1h_forecast,
                 'forecast_1d': forecast_1d,
                 'forecast_7d': forecast_7d,
@@ -1162,7 +1265,15 @@ class TradingSignalGenerator:
             # Save to database
             self.save_trading_signal_to_db(signal_data)
             
-            logger.info(f"{get_emoji('check')} Generated signal for {symbol}: {overall_signal}")
+            # Enhanced logging for pivot zones
+            if zone_details:
+                logger.info(f"Pivot Zone Analysis for {symbol}:")
+                logger.info(f"  Zone: {pivot_zone} ({pivot_signal})")
+                logger.info(f"  Price Range: ${zone_details.get('price_range', 0):.4f}")
+                logger.info(f"  Accumulation Zone: ${zone_details.get('accumulation_lower', 0):.4f} - ${zone_details.get('accumulation_upper', 0):.4f}")
+                logger.info(f"  Signal Counts: Bullish={bull_count}, Bearish={bear_count}")
+            
+            logger.info(f"{get_emoji('check')} Generated signal for {symbol}: {overall_signal} ({pivot_zone})")
             return signal_data
             
         except Exception as e:
@@ -1190,25 +1301,30 @@ class TradingSignalGenerator:
             return False
     
     def format_signal_message(self, signal: Dict[str, Any]) -> str:
-        """Format signal message for Telegram"""
+        """Format signal message for Telegram with enhanced pivot zone info"""
         message = f"""
 🚀 <b>{signal['symbol']} Trading Signal</b> 🚀
 ⏰ {signal['timestamp']}
 
 📊 <b>Current Price:</b> ${signal['current_price']:.4f}
 
-📈 <b>Signals:</b>
+<b>PIVOT ZONE ANALYSIS:</b>
+• Zone: {signal['pivot_zone']}
+• Signal: {signal['pivot_signal']}
+
+📈 <b>Signals ({signal['signal_counts']['bullish']}/{signal['signal_counts']['total']} bullish):</b>
 • 1H Fibonacci: {signal['fib_15m_signal']}
 • Machine Learning: {signal['poly_signal']}
-• RSI: {signal['rsi_zone']}
+• RSI: {signal['rsi_signal']}
 • MACD: {signal['macd_signal']}
-• Pivot Zone: {signal['pivot_zone']}
+• Pivot Zone: {signal['pivot_signal']}
 
 🎯 <b>Overall Signal:</b> {signal['overall_signal']}
 
 📅 <b>30-Day Forecast:</b> ${signal['forecast_30d']:.4f}
 
 #{signal['overall_signal_type'].replace(' ', '')} #{signal['symbol'].replace('/', '').replace(':', '').replace('USDT', '')}
+#{signal['pivot_zone_type'].replace(' ', '')}Zone
         """
         return message.strip()
     
@@ -1241,18 +1357,31 @@ class TradingSignalGenerator:
         return message.strip()
     
     def display_console_output(self, signal: Dict[str, Any]):
-        """Display formatted output in console"""
+        """Display formatted output in console with pivot zone details"""
         print("\n" + "="*70)
         print(f"{get_emoji('rocket')} {signal['symbol']} TRADING SIGNAL")
         print(f"{get_emoji('clock')} {signal['timestamp']}")
         print("="*70)
         print(f"{get_emoji('chart')} Current Price: ${signal['current_price']:.4f}")
-        print(f"\n{get_emoji('signal')} Signals:")
+        
+        # Pivot Zone Details
+        zone_details = signal.get('zone_details', {})
+        if zone_details:
+            print(f"\n{get_emoji('portfolio')} PIVOT ZONE ANALYSIS:")
+            print(f"   • Zone: {signal['pivot_zone']}")
+            print(f"   • Signal: {signal['pivot_signal']}")
+            if 'accumulation_lower' in zone_details:
+                print(f"   • Accumulation Zone: ${zone_details['accumulation_lower']:.4f} - ${zone_details['accumulation_upper']:.4f}")
+            if 'extreme_discount' in zone_details:
+                print(f"   • Extreme Discount: <${zone_details['extreme_discount']:.4f}")
+        
+        print(f"\n{get_emoji('signal')} Signals ({signal.get('signal_counts', {}).get('bullish', 0)}/6 bullish):")
         print(f"   • 1H Fibonacci: {signal['fib_15m_signal']}")
         print(f"   • Machine Learning: {signal['poly_signal']}")
-        print(f"   • RSI: {signal['rsi_zone']}")
+        print(f"   • RSI: {signal['rsi_signal']}")
         print(f"   • MACD: {signal['macd_signal']}")
-        print(f"   • Pivot Zone: {signal['pivot_zone']}")
+        print(f"   • Pivot Zone: {signal['pivot_signal']}")
+        
         print(f"\n{get_emoji('star')} Overall Signal: {signal['overall_signal']}")
         print(f"\n{get_emoji('clock')} 30-Day Forecast: ${signal['forecast_30d']:.4f}")
         print("="*70)
@@ -1375,7 +1504,8 @@ def run_scheduled_signals():
                         for signal in strong_signals:
                             price_change = ((signal['forecast_30d'] - signal['current_price']) / signal['current_price']) * 100
                             print(f"   • {signal['symbol']}: {signal['overall_signal']} | "
-                                  f"${signal['current_price']:.4f} → ${signal['forecast_30d']:.4f} ({price_change:+.1f}%)")
+                                  f"${signal['current_price']:.4f} → ${signal['forecast_30d']:.4f} ({price_change:+.1f}%) | "
+                                  f"Zone: {signal['pivot_zone']}")
                 else:
                     print(f"\n{get_emoji('warning')} No signals generated")
                 
@@ -1444,13 +1574,17 @@ def main():
             print(f"{get_emoji('chart')} Total Symbols Processed: {len(all_signals)}/{len(SYMBOLS)}")
             print(f"{get_emoji('star')} Strong Signals Found: {len(strong_signals)}")
             
-            # Display strong signals
+            # Display strong signals with zone details
             if strong_signals:
                 print(f"\n{get_emoji('signal')} STRONG SIGNALS:")
                 for signal in strong_signals:
                     price_change = ((signal['forecast_30d'] - signal['current_price']) / signal['current_price']) * 100
+                    zone_details = signal.get('zone_details', {})
                     print(f"   • {signal['symbol']}: {signal['overall_signal']} | "
-                          f"${signal['current_price']:.4f} → ${signal['forecast_30d']:.4f} ({price_change:+.1f}%)")
+                          f"${signal['current_price']:.4f} → ${signal['forecast_30d']:.4f} ({price_change:+.1f}%) | "
+                          f"Zone: {signal['pivot_zone']}")
+                    if 'accumulation_lower' in zone_details:
+                        print(f"     Accumulation Zone: ${zone_details['accumulation_lower']:.4f} - ${zone_details['accumulation_upper']:.4f}")
             
             # Next steps
             print(f"\n{get_emoji('database')} Database updated: {DATABASE_PATH}")

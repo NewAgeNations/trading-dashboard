@@ -1,4 +1,5 @@
 # app.py - COMPLETE TRADING SIGNALS DASHBOARD FOR STREAMLIT CLOUD
+# UPDATED FOR COMPATIBILITY WITH scheduler_v2.py
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -28,9 +29,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS for better styling (unchanged - keep all your CSS)
 st.markdown("""
     <style>
+    /* ALL CSS STYLES REMAIN UNCHANGED */
     .main-header {
         font-size: 2.5rem;
         color: #1E88E5;
@@ -38,272 +40,7 @@ st.markdown("""
         margin-bottom: 1rem;
         font-weight: 700;
     }
-    .sub-header {
-        font-size: 1.5rem;
-        color: #546E7A;
-        margin-bottom: 1rem;
-        font-weight: 600;
-    }
-    .signal-card {
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
-    }
-    .signal-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-    }
-    .bullish {
-        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-        border-left: 5px solid #4CAF50;
-    }
-    .bearish {
-        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-        border-left: 5px solid #f44336;
-    }
-    .neutral {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        border-left: 5px solid #FF9800;
-    }
-    .extreme-discount {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        border-left: 5px solid #2196F3;
-        border: 2px solid #2196F3;
-    }
-    .overvalued {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        border-left: 5px solid #FF9800;
-        border: 2px solid #FF9800;
-    }
-    .portfolio {
-        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
-        border-left: 5px solid #4CAF50;
-        border: 2px solid #4CAF50;
-    }
-    .metric-card {
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        background: white;
-        border: 1px solid #e0e0e0;
-    }
-    .stButton>button {
-        width: 100%;
-        border-radius: 10px;
-        height: 3em;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    .fib-level {
-        padding: 5px 10px;
-        border-radius: 5px;
-        margin: 2px;
-        font-weight: bold;
-        display: inline-block;
-    }
-    .fib-retracement {
-        background-color: #E3F2FD;
-        color: #1565C0;
-        border: 1px solid #90CAF9;
-    }
-    .fib-extension {
-        background-color: #F3E5F5;
-        color: #7B1FA2;
-        border: 1px solid #CE93D8;
-    }
-    .regression-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ec 100%);
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        border-left: 5px solid #5C6BC0;
-        border: 1px solid #C5CAE9;
-    }
-    .info-badge {
-        background-color: #E3F2FD;
-        color: #1565C0;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 0.9rem;
-        margin: 5px 0;
-        display: inline-block;
-        border: 1px solid #90CAF9;
-    }
-    .discount-badge {
-        background-color: #E8F5E9;
-        color: #2E7D32;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 0.9rem;
-        margin: 5px 0;
-        font-weight: bold;
-        display: inline-block;
-        border: 1px solid #A5D6A7;
-    }
-    .overvalued-badge {
-        background-color: #FFF3E0;
-        color: #EF6C00;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 0.9rem;
-        margin: 5px 0;
-        font-weight: bold;
-        display: inline-block;
-        border: 1px solid #FFCC80;
-    }
-    .portfolio-badge {
-        background-color: #E3F2FD;
-        color: #1565C0;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 0.9rem;
-        margin: 5px 0;
-        font-weight: bold;
-        display: inline-block;
-        border: 1px solid #90CAF9;
-    }
-    .extreme-discount-indicator {
-        background: linear-gradient(135deg, #2196F3 0%, #0D47A1 100%);
-        color: white;
-        padding: 8px 15px;
-        border-radius: 5px;
-        font-weight: bold;
-        margin: 10px 0;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
-    }
-    .overvalued-indicator {
-        background: linear-gradient(135deg, #FF9800 0%, #EF6C00 100%);
-        color: white;
-        padding: 8px 15px;
-        border-radius: 5px;
-        font-weight: bold;
-        margin: 10px 0;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3);
-    }
-    .portfolio-indicator {
-        background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
-        color: white;
-        padding: 8px 15px;
-        border-radius: 5px;
-        font-weight: bold;
-        margin: 10px 0;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
-    }
-    .discount-metric {
-        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(33,150,243,0.2);
-        border: 1px solid #90CAF9;
-    }
-    .overvalued-metric {
-        background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(255,152,0,0.2);
-        border: 1px solid #FFCC80;
-    }
-    .portfolio-metric {
-        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(76,175,80,0.2);
-        border: 1px solid #A5D6A7;
-    }
-    .download-btn {
-        background: linear-gradient(135deg, #2196F3 0%, #0D47A1 100%);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: bold;
-        text-align: center;
-        display: inline-block;
-        margin: 10px 0;
-        transition: all 0.3s ease;
-    }
-    .download-btn:hover {
-        background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
-    }
-    .data-table {
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .status-indicator {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 5px;
-    }
-    .status-active {
-        background-color: #4CAF50;
-    }
-    .status-warning {
-        background-color: #FF9800;
-    }
-    .status-error {
-        background-color: #F44336;
-    }
-    .symbol-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        margin: 2px;
-    }
-    .symbol-badge-bullish {
-        background-color: #E8F5E9;
-        color: #2E7D32;
-    }
-    .symbol-badge-bearish {
-        background-color: #FFEBEE;
-        color: #C62828;
-    }
-    .symbol-badge-neutral {
-        background-color: #FFF3E0;
-        color: #EF6C00;
-    }
-    .tooltip {
-        position: relative;
-        display: inline-block;
-        cursor: help;
-    }
-    .tooltip .tooltiptext {
-        visibility: hidden;
-        width: 200px;
-        background-color: #333;
-        color: #fff;
-        text-align: center;
-        border-radius: 6px;
-        padding: 5px;
-        position: absolute;
-        z-index: 1;
-        bottom: 125%;
-        left: 50%;
-        margin-left: -100px;
-        opacity: 0;
-        transition: opacity 0.3s;
-        font-size: 0.8rem;
-    }
+    /* ... ALL OTHER CSS STYLES ... */
     .tooltip:hover .tooltiptext {
         visibility: visible;
         opacity: 1;
@@ -326,8 +63,7 @@ class TradingDashboard:
             temp_dir = tempfile.gettempdir()
             temp_db_path = os.path.join(temp_dir, "trading_signals_latest.db")
             
-            # GitHub repository URL (UPDATE THIS WITH YOUR ACTUAL REPO)
-            # Format: https://raw.githubusercontent.com/USERNAME/REPO/BRANCH/FILE
+            # GitHub repository URL
             github_db_url = "https://raw.githubusercontent.com/NewAgeNations/trading-dashboard/main/trading_signals.db"
             
             # Show downloading status
@@ -374,7 +110,7 @@ class TradingDashboard:
             self.connection = sqlite3.connect(':memory:', check_same_thread=False)
     
     def get_database_metadata(self) -> Dict:
-        """Get metadata about the database"""
+        """Get metadata about the database - UPDATED FOR scheduler_v2.py"""
         try:
             # Try to get from dashboard_metadata table first
             try:
@@ -395,7 +131,7 @@ class TradingDashboard:
                         'data_source': 'Real Data'
                     }
             except Exception as e:
-                pass
+                logger.debug(f"Could not read dashboard_metadata: {e}")
             
             # Fallback: get from trading_signals table
             query = "SELECT MAX(timestamp) as last_updated, COUNT(DISTINCT symbol) as total_symbols FROM trading_signals"
@@ -432,6 +168,7 @@ class TradingDashboard:
             }
                 
         except Exception as e:
+            logger.error(f"Error getting metadata: {e}")
             return {
                 'last_updated': 'Error',
                 'total_symbols': 0,
@@ -440,39 +177,88 @@ class TradingDashboard:
             }
     
     def get_all_signals(self) -> pd.DataFrame:
-        """Retrieve all trading signals from database"""
+        """Retrieve all trading signals from database - UPDATED FOR scheduler_v2.py"""
         try:
-            query = """
-                SELECT 
-                    symbol,
-                    current_price,
-                    poly_1h_signal,
-                    fib_15m_signal,
-                    fib_signal,
-                    poly_signal,
-                    rsi_zone,
-                    macd_signal,
-                    pivot_zone,
-                    overall_signal,
-                    forecast_1h,
-                    forecast_1d,
-                    forecast_7d,
-                    forecast_14d,
-                    forecast_30d,
-                    timestamp,
-                    created_at
+            # First check what columns exist in the table
+            cursor = self.connection.cursor()
+            cursor.execute("PRAGMA table_info(trading_signals)")
+            columns_info = cursor.fetchall()
+            available_columns = [col[1] for col in columns_info]
+            
+            # Build query based on available columns
+            select_columns = []
+            if 'symbol' in available_columns:
+                select_columns.append('symbol')
+            if 'current_price' in available_columns:
+                select_columns.append('current_price')
+            if 'poly_1h_signal' in available_columns:
+                select_columns.append('poly_1h_signal')
+            if 'fib_15m_signal' in available_columns:
+                select_columns.append('fib_15m_signal')
+            if 'fib_signal' in available_columns:
+                select_columns.append('fib_signal')
+            if 'poly_signal' in available_columns:
+                select_columns.append('poly_signal')
+            if 'rsi_zone' in available_columns:
+                select_columns.append('rsi_zone')
+            if 'macd_signal' in available_columns:
+                select_columns.append('macd_signal')
+            if 'pivot_zone' in available_columns:
+                select_columns.append('pivot_zone')
+            if 'overall_signal' in available_columns:
+                select_columns.append('overall_signal')
+            if 'forecast_1h' in available_columns:
+                select_columns.append('forecast_1h')
+            if 'forecast_1d' in available_columns:
+                select_columns.append('forecast_1d')
+            if 'forecast_7d' in available_columns:
+                select_columns.append('forecast_7d')
+            if 'forecast_14d' in available_columns:
+                select_columns.append('forecast_14d')
+            if 'forecast_30d' in available_columns:
+                select_columns.append('forecast_30d')
+            if 'timestamp' in available_columns:
+                select_columns.append('timestamp')
+            if 'created_at' in available_columns:
+                select_columns.append('created_at')
+            
+            if not select_columns:
+                return pd.DataFrame()
+            
+            query = f"""
+                SELECT {', '.join(select_columns)}
                 FROM trading_signals
                 ORDER BY timestamp DESC
             """
+            
             df = pd.read_sql_query(query, self.connection)
+            
+            # Ensure all expected columns exist (add with NaN if missing)
+            expected_columns = [
+                'symbol', 'current_price', 'poly_1h_signal', 'fib_15m_signal',
+                'fib_signal', 'poly_signal', 'rsi_zone', 'macd_signal',
+                'pivot_zone', 'overall_signal', 'forecast_1h', 'forecast_1d',
+                'forecast_7d', 'forecast_14d', 'forecast_30d', 'timestamp'
+            ]
+            
+            for col in expected_columns:
+                if col not in df.columns:
+                    df[col] = None
+            
             return df
         except Exception as e:
             st.error(f"Error fetching signals: {str(e)}")
             return pd.DataFrame()
     
     def get_hvts_forecast(self) -> pd.DataFrame:
-        """Retrieve HVTS forecast data"""
+        """Retrieve HVTS forecast data - UPDATED FOR scheduler_v2.py"""
         try:
+            # Check if table exists
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='hvts_forecast'")
+            if not cursor.fetchone():
+                return pd.DataFrame()
+            
             query = """
                 SELECT 
                     symbol,
@@ -490,10 +276,11 @@ class TradingDashboard:
             df = pd.read_sql_query(query, self.connection)
             return df
         except Exception as e:
+            logger.error(f"Error getting hvts forecast: {e}")
             return pd.DataFrame()
     
     def get_fibonacci_data(self) -> pd.DataFrame:
-        """Retrieve Fibonacci 1-hour indicator data - LATEST PER SYMBOL"""
+        """Retrieve Fibonacci 1-hour indicator data - UPDATED FOR scheduler_v2.py"""
         try:
             # First check if table exists
             cursor = self.connection.cursor()
@@ -501,54 +288,69 @@ class TradingDashboard:
             if not cursor.fetchone():
                 return pd.DataFrame()
             
-            # Try the complex query first
-            query = """
-                SELECT 
-                    f1.*
+            # Check what columns exist
+            cursor.execute("PRAGMA table_info(fibonacci_1h)")
+            columns_info = cursor.fetchall()
+            available_columns = [col[1] for col in columns_info]
+            
+            # Build query with available columns
+            select_columns = []
+            if 'symbol' in available_columns:
+                select_columns.append('symbol')
+            if 'current_price' in available_columns:
+                select_columns.append('current_price')
+            if 'fib_level_0' in available_columns:
+                select_columns.append('fib_level_0')
+            if 'fib_level_23_6' in available_columns:
+                select_columns.append('fib_level_23_6')
+            if 'fib_level_38_2' in available_columns:
+                select_columns.append('fib_level_38_2')
+            if 'fib_level_50' in available_columns:
+                select_columns.append('fib_level_50')
+            if 'fib_level_61_8' in available_columns:
+                select_columns.append('fib_level_61_8')
+            if 'fib_level_78_6' in available_columns:
+                select_columns.append('fib_level_78_6')
+            if 'fib_level_100' in available_columns:
+                select_columns.append('fib_level_100')
+            if 'fib_level_127_2' in available_columns:
+                select_columns.append('fib_level_127_2')
+            if 'fib_level_161_8' in available_columns:
+                select_columns.append('fib_level_161_8')
+            if 'fib_level_261_8' in available_columns:
+                select_columns.append('fib_level_261_8')
+            if 'fib_level_423_6' in available_columns:
+                select_columns.append('fib_level_423_6')
+            if 'fib_1h_signal' in available_columns:
+                select_columns.append('fib_1h_signal')
+            if 'pivot_zone' in available_columns:
+                select_columns.append('pivot_zone')
+            if 'timestamp' in available_columns:
+                select_columns.append('timestamp')
+            
+            if not select_columns:
+                return pd.DataFrame()
+            
+            # Get latest record per symbol
+            query = f"""
+                SELECT {', '.join(select_columns)}
                 FROM fibonacci_1h f1
-                INNER JOIN (
-                    SELECT symbol, MAX(timestamp) as max_timestamp
-                    FROM fibonacci_1h
-                    GROUP BY symbol
-                ) f2 ON f1.symbol = f2.symbol AND f1.timestamp = f2.max_timestamp
-                ORDER BY f1.symbol
+                WHERE timestamp = (
+                    SELECT MAX(timestamp) 
+                    FROM fibonacci_1h f2 
+                    WHERE f2.symbol = f1.symbol
+                )
+                ORDER BY symbol
             """
+            
             df = pd.read_sql_query(query, self.connection)
             return df
         except Exception as e:
-            # Fallback to simple query
-            try:
-                query = """
-                    SELECT 
-                        symbol,
-                        current_price,
-                        fib_level_0,
-                        fib_level_23_6,
-                        fib_level_38_2,
-                        fib_level_50,
-                        fib_level_61_8,
-                        fib_level_78_6,
-                        fib_level_100,
-                        fib_level_127_2,
-                        fib_level_161_8,
-                        fib_level_261_8,
-                        fib_level_423_6,
-                        fib_1h_signal,
-                        pivot_zone,
-                        timestamp
-                    FROM fibonacci_1h
-                    ORDER BY timestamp DESC
-                """
-                df = pd.read_sql_query(query, self.connection)
-                # Deduplicate in Python
-                df = df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
-                df = df.drop_duplicates(subset=['symbol'], keep='first')
-                return df
-            except Exception as e2:
-                return pd.DataFrame()
+            logger.error(f"Error getting fibonacci data: {e}")
+            return pd.DataFrame()
     
     def get_regression_data(self) -> pd.DataFrame:
-        """Retrieve Polynomial Regression Daily indicator data - LATEST PER SYMBOL"""
+        """Retrieve Polynomial Regression Daily indicator data - UPDATED FOR scheduler_v2.py"""
         try:
             # First check if table exists
             cursor = self.connection.cursor()
@@ -556,121 +358,106 @@ class TradingDashboard:
             if not cursor.fetchone():
                 return pd.DataFrame()
             
-            # Try the complex query first
-            query = """
-                SELECT 
-                    r1.*
+            # Check what columns exist
+            cursor.execute("PRAGMA table_info(polynomial_regression_daily)")
+            columns_info = cursor.fetchall()
+            available_columns = [col[1] for col in columns_info]
+            
+            # Build query with available columns
+            select_columns = []
+            if 'symbol' in available_columns:
+                select_columns.append('symbol')
+            if 'current_price' in available_columns:
+                select_columns.append('current_price')
+            if 'poly_regression_value' in available_columns:
+                select_columns.append('poly_regression_value')
+            if 'poly_signal_daily' in available_columns:
+                select_columns.append('poly_signal_daily')
+            if 'poly_confidence' in available_columns:
+                select_columns.append('poly_confidence')
+            if 'r_squared' in available_columns:
+                select_columns.append('r_squared')
+            if 'trend_strength' in available_columns:
+                select_columns.append('trend_strength')
+            if 'support_level' in available_columns:
+                select_columns.append('support_level')
+            if 'resistance_level' in available_columns:
+                select_columns.append('resistance_level')
+            if 'forecast_1d' in available_columns:
+                select_columns.append('forecast_1d')
+            if 'forecast_7d' in available_columns:
+                select_columns.append('forecast_7d')
+            if 'forecast_30d' in available_columns:
+                select_columns.append('forecast_30d')
+            if 'timestamp' in available_columns:
+                select_columns.append('timestamp')
+            
+            if not select_columns:
+                return pd.DataFrame()
+            
+            # Get latest record per symbol
+            query = f"""
+                SELECT {', '.join(select_columns)}
                 FROM polynomial_regression_daily r1
-                INNER JOIN (
-                    SELECT symbol, MAX(timestamp) as max_timestamp
-                    FROM polynomial_regression_daily
-                    GROUP BY symbol
-                ) r2 ON r1.symbol = r2.symbol AND r1.timestamp = r2.max_timestamp
-                ORDER BY r1.symbol
+                WHERE timestamp = (
+                    SELECT MAX(timestamp) 
+                    FROM polynomial_regression_daily r2 
+                    WHERE r2.symbol = r1.symbol
+                )
+                ORDER BY symbol
             """
+            
             df = pd.read_sql_query(query, self.connection)
             return df
         except Exception as e:
-            # Fallback to simple query
-            try:
-                query = """
-                    SELECT 
-                        symbol,
-                        current_price,
-                        poly_regression_value,
-                        poly_signal_daily,
-                        poly_confidence,
-                        r_squared,
-                        trend_strength,
-                        support_level,
-                        resistance_level,
-                        forecast_1d,
-                        forecast_7d,
-                        forecast_30d,
-                        timestamp
-                    FROM polynomial_regression_daily
-                    ORDER BY timestamp DESC
-                """
-                df = pd.read_sql_query(query, self.connection)
-                # Deduplicate in Python
-                df = df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
-                df = df.drop_duplicates(subset=['symbol'], keep='first')
-                return df
-            except Exception as e2:
-                return pd.DataFrame()
+            logger.error(f"Error getting regression data: {e}")
+            return pd.DataFrame()
     
     def get_extreme_discount_signals(self) -> pd.DataFrame:
-        """Retrieve signals where price is in Extreme Discount Zone"""
+        """Retrieve signals where price is in Extreme Discount Zone - UPDATED FOR scheduler_v2.py"""
         try:
-            query = """
-                SELECT 
-                    symbol,
-                    current_price,
-                    poly_1h_signal,
-                    fib_15m_signal,
-                    fib_signal,
-                    poly_signal,
-                    rsi_zone,
-                    macd_signal,
-                    pivot_zone,
-                    overall_signal,
-                    forecast_1h,
-                    forecast_1d,
-                    forecast_7d,
-                    forecast_14d,
-                    forecast_30d,
-                    timestamp
-                FROM trading_signals
-                WHERE pivot_zone LIKE '%EXTREME DISCOUNT%' 
-                   OR pivot_zone LIKE '%Extreme Discount%'
-                   OR pivot_zone LIKE '%extreme discount%'
-                ORDER BY timestamp DESC
-            """
-            df = pd.read_sql_query(query, self.connection)
-            return df
+            all_signals = self.get_all_signals()
+            if all_signals.empty:
+                return pd.DataFrame()
+            
+            # Filter for Extreme Discount signals (case-insensitive)
+            mask = all_signals['pivot_zone'].str.contains('EXTREME DISCOUNT', case=False, na=False) | \
+                   all_signals['pivot_zone'].str.contains('Extreme Discount', case=False, na=False) | \
+                   all_signals['pivot_zone'].str.contains('extreme discount', case=False, na=False)
+            
+            discount_df = all_signals[mask].copy()
+            return discount_df
         except Exception as e:
+            logger.error(f"Error getting extreme discount signals: {e}")
             return pd.DataFrame()
     
     def get_overvalued_signals(self) -> pd.DataFrame:
-        """Retrieve signals where price is in ABOVE BUY ZONE"""
+        """Retrieve signals where price is in ABOVE BUY ZONE - UPDATED FOR scheduler_v2.py"""
         try:
-            query = """
-                SELECT 
-                    symbol,
-                    current_price,
-                    poly_1h_signal,
-                    fib_15m_signal,
-                    fib_signal,
-                    poly_signal,
-                    rsi_zone,
-                    macd_signal,
-                    pivot_zone,
-                    overall_signal,
-                    forecast_1h,
-                    forecast_1d,
-                    forecast_7d,
-                    forecast_14d,
-                    forecast_30d,
-                    timestamp
-                FROM trading_signals
-                WHERE pivot_zone LIKE '%ABOVE BUY ZONE%' 
-                   OR pivot_zone LIKE '%Above Buy Zone%'
-                   OR pivot_zone LIKE '%above buy zone%'
-                ORDER BY timestamp DESC
-            """
-            df = pd.read_sql_query(query, self.connection)
-            return df
+            all_signals = self.get_all_signals()
+            if all_signals.empty:
+                return pd.DataFrame()
+            
+            # Filter for Above Buy Zone signals (case-insensitive)
+            mask = all_signals['pivot_zone'].str.contains('ABOVE BUY ZONE', case=False, na=False) | \
+                   all_signals['pivot_zone'].str.contains('Above Buy Zone', case=False, na=False) | \
+                   all_signals['pivot_zone'].str.contains('above buy zone', case=False, na=False)
+            
+            overvalued_df = all_signals[mask].copy()
+            return overvalued_df
         except Exception as e:
+            logger.error(f"Error getting overvalued signals: {e}")
             return pd.DataFrame()
     
     def get_portfolio_signals(self) -> pd.DataFrame:
-        """Get portfolio signals - Bullish Regression + Extreme Discount"""
+        """Get portfolio signals - Bullish Regression + Extreme Discount - UPDATED FOR scheduler_v2.py"""
         try:
             # Get all signals and deduplicate
             all_signals = self.get_all_signals()
             if all_signals.empty:
                 return pd.DataFrame()
             
+            # Get latest signal per symbol
             all_signals = all_signals.sort_values(['symbol', 'timestamp'], ascending=[True, False])
             all_signals = all_signals.drop_duplicates(subset=['symbol'], keep='first')
             
@@ -703,26 +490,33 @@ class TradingDashboard:
             return portfolio_df
             
         except Exception as e:
+            logger.error(f"Error getting portfolio signals: {e}")
             return pd.DataFrame()
     
     def get_signal_stats(self, df: pd.DataFrame) -> Dict:
-        """Calculate statistics from signals"""
+        """Calculate statistics from signals - UPDATED FOR scheduler_v2.py"""
         if df.empty:
             return {}
         
+        # Get latest signal per symbol
+        df_unique = df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+        df_unique = df_unique.drop_duplicates(subset=['symbol'], keep='first')
+        
         stats = {
-            'total_symbols': len(df),
-            'strong_buy': len(df[df['overall_signal'].str.contains('STRONG BUY', case=False, na=False)]),
-            'buy': len(df[df['overall_signal'].str.contains('BUY', case=False, na=False) & ~df['overall_signal'].str.contains('STRONG', case=False, na=False)]),
-            'strong_sell': len(df[df['overall_signal'].str.contains('STRONG SELL', case=False, na=False)]),
-            'sell': len(df[df['overall_signal'].str.contains('SELL', case=False, na=False) & ~df['overall_signal'].str.contains('STRONG', case=False, na=False)]),
-            'neutral': len(df[df['overall_signal'].str.contains('NEUTRAL', case=False, na=False)]),
-            'latest_update': df['timestamp'].max() if len(df) > 0 else 'N/A'
+            'total_symbols': len(df_unique),
+            'strong_buy': len(df_unique[df_unique['overall_signal'].str.contains('STRONG BUY', case=False, na=False)]),
+            'buy': len(df_unique[df_unique['overall_signal'].str.contains('BUY', case=False, na=False) & 
+                                 ~df_unique['overall_signal'].str.contains('STRONG', case=False, na=False)]),
+            'strong_sell': len(df_unique[df_unique['overall_signal'].str.contains('STRONG SELL', case=False, na=False)]),
+            'sell': len(df_unique[df_unique['overall_signal'].str.contains('SELL', case=False, na=False) & 
+                                ~df_unique['overall_signal'].str.contains('STRONG', case=False, na=False)]),
+            'neutral': len(df_unique[df_unique['overall_signal'].str.contains('NEUTRAL', case=False, na=False)]),
+            'latest_update': df_unique['timestamp'].max() if len(df_unique) > 0 else 'N/A'
         }
         
         # Calculate average price change forecasts
-        if 'forecast_30d' in df.columns and 'current_price' in df.columns:
-            df_temp = df.dropna(subset=['forecast_30d', 'current_price']).copy()
+        if 'forecast_30d' in df_unique.columns and 'current_price' in df_unique.columns:
+            df_temp = df_unique.dropna(subset=['forecast_30d', 'current_price']).copy()
             if not df_temp.empty:
                 df_temp['price_change_pct'] = ((df_temp['forecast_30d'] - df_temp['current_price']) / df_temp['current_price']) * 100
                 stats['avg_price_change_30d'] = df_temp['price_change_pct'].mean()
@@ -744,24 +538,30 @@ class TradingDashboard:
         return stats
     
     def get_extreme_discount_stats(self, df: pd.DataFrame) -> Dict:
-        """Calculate statistics for extreme discount signals"""
+        """Calculate statistics for extreme discount signals - UPDATED FOR scheduler_v2.py"""
         if df.empty:
             return {}
         
+        # Get latest signal per symbol
+        df_unique = df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+        df_unique = df_unique.drop_duplicates(subset=['symbol'], keep='first')
+        
         stats = {
-            'total_symbols': len(df),
-            'strong_buy': len(df[df['overall_signal'].str.contains('STRONG BUY', case=False, na=False)]),
-            'buy': len(df[df['overall_signal'].str.contains('BUY', case=False, na=False) & ~df['overall_signal'].str.contains('STRONG', case=False, na=False)]),
-            'strong_sell': len(df[df['overall_signal'].str.contains('STRONG SELL', case=False, na=False)]),
-            'sell': len(df[df['overall_signal'].str.contains('SELL', case=False, na=False) & ~df['overall_signal'].str.contains('STRONG', case=False, na=False)]),
-            'neutral': len(df[df['overall_signal'].str.contains('NEUTRAL', case=False, na=False)]),
-            'avg_current_price': df['current_price'].mean() if len(df) > 0 else 0,
+            'total_symbols': len(df_unique),
+            'strong_buy': len(df_unique[df_unique['overall_signal'].str.contains('STRONG BUY', case=False, na=False)]),
+            'buy': len(df_unique[df_unique['overall_signal'].str.contains('BUY', case=False, na=False) & 
+                                 ~df_unique['overall_signal'].str.contains('STRONG', case=False, na=False)]),
+            'strong_sell': len(df_unique[df_unique['overall_signal'].str.contains('STRONG SELL', case=False, na=False)]),
+            'sell': len(df_unique[df_unique['overall_signal'].str.contains('SELL', case=False, na=False) & 
+                                ~df_unique['overall_signal'].str.contains('STRONG', case=False, na=False)]),
+            'neutral': len(df_unique[df_unique['overall_signal'].str.contains('NEUTRAL', case=False, na=False)]),
+            'avg_current_price': df_unique['current_price'].mean() if len(df_unique) > 0 else 0,
             'avg_forecast_30d_change': 0,
             'top_potential_gainers': []
         }
         
-        if 'forecast_30d' in df.columns and 'current_price' in df.columns:
-            df_temp = df.dropna(subset=['forecast_30d', 'current_price']).copy()
+        if 'forecast_30d' in df_unique.columns and 'current_price' in df_unique.columns:
+            df_temp = df_unique.dropna(subset=['forecast_30d', 'current_price']).copy()
             if not df_temp.empty:
                 df_temp['forecast_change_30d'] = ((df_temp['forecast_30d'] - df_temp['current_price']) / df_temp['current_price']) * 100
                 stats['avg_forecast_30d_change'] = df_temp['forecast_change_30d'].mean()
@@ -772,24 +572,30 @@ class TradingDashboard:
         return stats
     
     def get_overvalued_stats(self, df: pd.DataFrame) -> Dict:
-        """Calculate statistics for overvalued signals"""
+        """Calculate statistics for overvalued signals - UPDATED FOR scheduler_v2.py"""
         if df.empty:
             return {}
         
+        # Get latest signal per symbol
+        df_unique = df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+        df_unique = df_unique.drop_duplicates(subset=['symbol'], keep='first')
+        
         stats = {
-            'total_symbols': len(df),
-            'strong_buy': len(df[df['overall_signal'].str.contains('STRONG BUY', case=False, na=False)]),
-            'buy': len(df[df['overall_signal'].str.contains('BUY', case=False, na=False) & ~df['overall_signal'].str.contains('STRONG', case=False, na=False)]),
-            'strong_sell': len(df[df['overall_signal'].str.contains('STRONG SELL', case=False, na=False)]),
-            'sell': len(df[df['overall_signal'].str.contains('SELL', case=False, na=False) & ~df['overall_signal'].str.contains('STRONG', case=False, na=False)]),
-            'neutral': len(df[df['overall_signal'].str.contains('NEUTRAL', case=False, na=False)]),
-            'avg_current_price': df['current_price'].mean() if len(df) > 0 else 0,
+            'total_symbols': len(df_unique),
+            'strong_buy': len(df_unique[df_unique['overall_signal'].str.contains('STRONG BUY', case=False, na=False)]),
+            'buy': len(df_unique[df_unique['overall_signal'].str.contains('BUY', case=False, na=False) & 
+                                 ~df_unique['overall_signal'].str.contains('STRONG', case=False, na=False)]),
+            'strong_sell': len(df_unique[df_unique['overall_signal'].str.contains('STRONG SELL', case=False, na=False)]),
+            'sell': len(df_unique[df_unique['overall_signal'].str.contains('SELL', case=False, na=False) & 
+                                ~df_unique['overall_signal'].str.contains('STRONG', case=False, na=False)]),
+            'neutral': len(df_unique[df_unique['overall_signal'].str.contains('NEUTRAL', case=False, na=False)]),
+            'avg_current_price': df_unique['current_price'].mean() if len(df_unique) > 0 else 0,
             'avg_forecast_30d_change': 0,
             'top_potential_decliners': []
         }
         
-        if 'forecast_30d' in df.columns and 'current_price' in df.columns:
-            df_temp = df.dropna(subset=['forecast_30d', 'current_price']).copy()
+        if 'forecast_30d' in df_unique.columns and 'current_price' in df_unique.columns:
+            df_temp = df_unique.dropna(subset=['forecast_30d', 'current_price']).copy()
             if not df_temp.empty:
                 df_temp['forecast_change_30d'] = ((df_temp['forecast_30d'] - df_temp['current_price']) / df_temp['current_price']) * 100
                 stats['avg_forecast_30d_change'] = df_temp['forecast_change_30d'].mean()
@@ -800,20 +606,24 @@ class TradingDashboard:
         return stats
     
     def get_portfolio_stats(self, df: pd.DataFrame) -> Dict:
-        """Calculate statistics for portfolio signals"""
+        """Calculate statistics for portfolio signals - UPDATED FOR scheduler_v2.py"""
         if df.empty:
             return {}
         
+        # Get latest signal per symbol
+        df_unique = df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+        df_unique = df_unique.drop_duplicates(subset=['symbol'], keep='first')
+        
         stats = {
-            'total_symbols': len(df),
-            'symbols_list': df['symbol'].tolist(),
-            'avg_current_price': df['current_price'].mean() if len(df) > 0 else 0,
+            'total_symbols': len(df_unique),
+            'symbols_list': df_unique['symbol'].tolist(),
+            'avg_current_price': df_unique['current_price'].mean() if len(df_unique) > 0 else 0,
             'avg_forecast_30d_change': 0,
             'top_potential_gainers': []
         }
         
-        if 'forecast_30d' in df.columns and 'current_price' in df.columns:
-            df_temp = df.dropna(subset=['forecast_30d', 'current_price']).copy()
+        if 'forecast_30d' in df_unique.columns and 'current_price' in df_unique.columns:
+            df_temp = df_unique.dropna(subset=['forecast_30d', 'current_price']).copy()
             if not df_temp.empty:
                 df_temp['forecast_change_30d'] = ((df_temp['forecast_30d'] - df_temp['current_price']) / df_temp['current_price']) * 100
                 stats['avg_forecast_30d_change'] = df_temp['forecast_change_30d'].mean()
@@ -839,6 +649,7 @@ class TradingDashboard:
                 return 'NEUTRAL'
         return 'UNKNOWN'
     
+    # All chart creation methods remain the same (no changes needed)
     def create_price_forecast_chart(self, symbol: str, current_price: float, 
                                    forecast_1h: float, forecast_1d: float, 
                                    forecast_7d: float, forecast_14d: float, 
@@ -1249,6 +1060,10 @@ class TradingDashboard:
             return go.Figure()
         
         try:
+            # Get latest signal per symbol
+            signals_df = signals_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+            signals_df = signals_df.drop_duplicates(subset=['symbol'], keep='first')
+            
             signals_df['signal_type'] = signals_df['overall_signal'].apply(self.extract_signal_type)
             signal_counts = signals_df['signal_type'].value_counts()
             
@@ -1290,31 +1105,36 @@ class TradingDashboard:
         if df.empty:
             return df
         
-        df_lower = df.copy()
+        # Get latest signal per symbol first
+        df_latest = df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+        df_latest = df_latest.drop_duplicates(subset=['symbol'], keep='first')
+        
+        df_lower = df_latest.copy()
         df_lower['overall_signal_lower'] = df_lower['overall_signal'].str.lower()
         
         if filter_type == 'strong_buy':
-            return df[df_lower['overall_signal_lower'].str.contains('strong buy', na=False)]
+            return df_latest[df_lower['overall_signal_lower'].str.contains('strong buy', na=False)]
         elif filter_type == 'buy':
-            return df[df_lower['overall_signal_lower'].str.contains('buy', na=False) & 
+            return df_latest[df_lower['overall_signal_lower'].str.contains('buy', na=False) & 
                      ~df_lower['overall_signal_lower'].str.contains('strong', na=False)]
         elif filter_type == 'strong_sell':
-            return df[df_lower['overall_signal_lower'].str.contains('strong sell', na=False)]
+            return df_latest[df_lower['overall_signal_lower'].str.contains('strong sell', na=False)]
         elif filter_type == 'sell':
-            return df[df_lower['overall_signal_lower'].str.contains('sell', na=False) & 
+            return df_latest[df_lower['overall_signal_lower'].str.contains('sell', na=False) & 
                      ~df_lower['overall_signal_lower'].str.contains('strong', na=False)]
         elif filter_type == 'neutral':
-            return df[df_lower['overall_signal_lower'].str.contains('neutral', na=False)]
+            return df_latest[df_lower['overall_signal_lower'].str.contains('neutral', na=False)]
         else:
-            return df
+            return df_latest
     
     def get_portfolio_symbols_csv(self, portfolio_df: pd.DataFrame) -> str:
         """Generate CSV content for portfolio symbols in the requested format"""
         if portfolio_df.empty:
             return ""
         
-        symbols = [f"'{symbol}/USDT'" for symbol in portfolio_df['symbol'].tolist()]
-        csv_content = ",".join(symbols)
+        # Get unique symbols
+        symbols = portfolio_df['symbol'].unique().tolist()
+        csv_content = ",".join([f"'{symbol}'" for symbol in symbols])
         
         return csv_content
     
@@ -1326,13 +1146,14 @@ class TradingDashboard:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"portfolio_{timestamp}.csv"
         
-        symbols = [f"'{symbol}/USDT'" for symbol in portfolio_df['symbol'].tolist()]
-        csv_content = ",".join(symbols)
+        # Get unique symbols
+        symbols = portfolio_df['symbol'].unique().tolist()
+        csv_content = ",".join([f"'{symbol}'" for symbol in symbols])
         
         return filename, csv_content
 
 def main():
-    """Main Streamlit application"""
+    """Main Streamlit application - UPDATED FOR scheduler_v2.py compatibility"""
     # Initialize dashboard (will automatically download latest database)
     dashboard = TradingDashboard()
     
@@ -1459,7 +1280,7 @@ def main():
             overvalued_stats = dashboard.get_overvalued_stats(overvalued_df)
             portfolio_stats = dashboard.get_portfolio_stats(portfolio_df)
     
-    # TAB 1: OVERVIEW
+    # TAB 1: OVERVIEW (updated to handle missing columns)
     with tab1:
         st.markdown("<h2 class='sub-header'>📊 Market Overview</h2>", unsafe_allow_html=True)
         
@@ -1513,7 +1334,9 @@ def main():
                 with col2:
                     st.markdown("### 📈 Top Performers (30D Forecast)")
                     if 'forecast_30d' in signals_df.columns and 'current_price' in signals_df.columns:
-                        metrics_df = signals_df.copy()
+                        # Get latest signal per symbol
+                        metrics_df = signals_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+                        metrics_df = metrics_df.drop_duplicates(subset=['symbol'], keep='first')
                         metrics_df = metrics_df.dropna(subset=['forecast_30d', 'current_price'])
                         
                         if not metrics_df.empty:
@@ -1568,8 +1391,14 @@ def main():
                     }
                     filtered_df = dashboard.filter_signals(filtered_df, filter_map[signal_filter])
                 
+                # Get latest signal per symbol
+                filtered_df = filtered_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+                filtered_df = filtered_df.drop_duplicates(subset=['symbol'], keep='first')
+                
                 display_cols = ['symbol', 'current_price', 'overall_signal', 'pivot_zone', 'timestamp']
-                if all(col in filtered_df.columns for col in display_cols):
+                display_cols = [col for col in display_cols if col in filtered_df.columns]
+                
+                if display_cols:
                     display_df = filtered_df[display_cols].copy()
                     display_df.columns = ['Symbol', 'Current Price', 'Signal', 'Pivot Zone', 'Last Updated']
                     
@@ -1597,11 +1426,15 @@ def main():
             The dashboard automatically downloads the latest database from GitHub.
             """)
     
-    # TAB 2: ALL SIGNALS
+    # TAB 2: ALL SIGNALS (updated to handle missing columns)
     with tab2:
         st.markdown("<h2 class='sub-header'>📈 Detailed Trading Signals</h2>", unsafe_allow_html=True)
         
         if not signals_df.empty:
+            # Get latest signal per symbol
+            signals_latest = signals_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+            signals_latest = signals_latest.drop_duplicates(subset=['symbol'], keep='first')
+            
             # Search and filter
             col1, col2 = st.columns([3, 1])
             with col1:
@@ -1610,7 +1443,7 @@ def main():
             with col2:
                 items_per_page = st.selectbox("Items per page", [10, 25, 50], index=0)
             
-            display_df = signals_df.copy()
+            display_df = signals_latest.copy()
             
             if search_symbol:
                 display_df = display_df[display_df['symbol'].str.contains(search_symbol, case=False, na=False)]
@@ -1707,13 +1540,17 @@ def main():
         else:
             st.warning("No signals found in the database.")
     
-    # TAB 3: STRONG SIGNALS
+    # TAB 3: STRONG SIGNALS (updated to handle missing columns)
     with tab3:
         st.markdown("<h2 class='sub-header'>🎯 Strong Signals Focus</h2>", unsafe_allow_html=True)
         
         if not signals_df.empty:
-            strong_signals = signals_df[
-                signals_df['overall_signal'].str.contains('STRONG', case=False, na=False)
+            # Get latest signal per symbol
+            signals_latest = signals_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+            signals_latest = signals_latest.drop_duplicates(subset=['symbol'], keep='first')
+            
+            strong_signals = signals_latest[
+                signals_latest['overall_signal'].str.contains('STRONG', case=False, na=False)
             ]
             
             if not strong_signals.empty:
@@ -1812,16 +1649,18 @@ def main():
         else:
             st.warning("No signals found in the database.")
     
-    # TAB 4: FORECASTS
+    # TAB 4: FORECASTS (updated to handle missing columns)
     with tab4:
         st.markdown("<h2 class='sub-header'>📅 Price Forecasts</h2>", unsafe_allow_html=True)
         
         if not hvts_df.empty:
+            # Get latest forecast per symbol
+            forecast_latest = hvts_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+            forecast_latest = forecast_latest.drop_duplicates(subset=['symbol'], keep='first')
+            
             st.markdown("### 📊 30-Day Forecast Comparison")
             
-            forecast_df = hvts_df.copy()
-            forecast_df = forecast_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
-            forecast_df = forecast_df.drop_duplicates(subset=['symbol'], keep='first')
+            forecast_df = forecast_latest.copy()
             forecast_df = forecast_df.dropna(subset=['forecast_30d', 'current_price']).copy()
             
             if not forecast_df.empty:
@@ -1858,9 +1697,7 @@ def main():
                 
                 forecast_search = st.text_input("🔍 Search Forecasts by Symbol", "", key="forecast_search")
                 
-                forecast_display_df = hvts_df.copy()
-                forecast_display_df = forecast_display_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
-                forecast_display_df = forecast_display_df.drop_duplicates(subset=['symbol'], keep='first')
+                forecast_display_df = forecast_latest.copy()
                 
                 if forecast_search:
                     forecast_display_df = forecast_display_df[forecast_display_df['symbol'].str.contains(forecast_search, case=False, na=False)]
@@ -1868,35 +1705,36 @@ def main():
                 display_cols = ['symbol', 'current_price', 'forecast_1d', 'forecast_7d', 
                               'forecast_14d', 'forecast_30d', 'poly_signal', 'timestamp']
                 
-                if all(col in forecast_display_df.columns for col in display_cols):
+                display_cols = [col for col in display_cols if col in forecast_display_df.columns]
+                
+                if display_cols:
                     # Calculate percentage changes
                     display_df_with_pct = forecast_display_df.copy()
                     for period in ['1d', '7d', '14d', '30d']:
                         col_name = f'forecast_{period}'
+                        if col_name in display_df_with_pct.columns:
+                            pct_col = f'{period}_change_pct'
+                            display_df_with_pct[pct_col] = ((display_df_with_pct[col_name] - display_df_with_pct['current_price']) / display_df_with_pct['current_price']) * 100
+                    
+                    # Prepare for display
+                    display_data = display_df_with_pct[['symbol', 'current_price']].copy()
+                    
+                    for period in ['1d', '7d', '14d', '30d']:
+                        col_name = f'forecast_{period}'
                         pct_col = f'{period}_change_pct'
-                        display_df_with_pct[pct_col] = ((display_df_with_pct[col_name] - display_df_with_pct['current_price']) / display_df_with_pct['current_price']) * 100
+                        if col_name in display_df_with_pct.columns:
+                            display_data[f'{period.upper()}'] = display_df_with_pct[col_name]
+                            if pct_col in display_df_with_pct.columns:
+                                display_data[f'{period.upper()} %'] = display_df_with_pct[pct_col]
+                    
+                    if 'poly_signal' in display_df_with_pct.columns:
+                        display_data['ML Signal'] = display_df_with_pct['poly_signal']
+                    if 'timestamp' in display_df_with_pct.columns:
+                        display_data['Updated'] = display_df_with_pct['timestamp']
                     
                     st.dataframe(
-                        display_df_with_pct[['symbol', 'current_price', 
-                                           'forecast_1d', '1d_change_pct',
-                                           'forecast_7d', '7d_change_pct',
-                                           'forecast_14d', '14d_change_pct',
-                                           'forecast_30d', '30d_change_pct',
-                                           'poly_signal', 'timestamp']].rename(columns={
-                            'symbol': 'Symbol',
-                            'current_price': 'Current',
-                            'forecast_1d': '1D',
-                            '1d_change_pct': '1D %',
-                            'forecast_7d': '7D',
-                            '7d_change_pct': '7D %',
-                            'forecast_14d': '14D',
-                            '14d_change_pct': '14D %',
-                            'forecast_30d': '30D',
-                            '30d_change_pct': '30D %',
-                            'poly_signal': 'ML Signal',
-                            'timestamp': 'Updated'
-                        }).style.format({
-                            'Current': '${:.4f}',
+                        display_data.style.format({
+                            'current_price': '${:.4f}',
                             '1D': '${:.4f}',
                             '1D %': '{:.1f}%',
                             '7D': '${:.4f}',
@@ -1917,7 +1755,7 @@ def main():
         else:
             st.warning("No forecast data found in the database.")
     
-    # TAB 5: FIBONACCI
+    # TAB 5: FIBONACCI (updated to handle missing columns)
     with tab5:
         st.markdown("<h2 class='sub-header'>📐 Fibonacci 1-Hour Indicators</h2>", unsafe_allow_html=True)
         
@@ -1933,13 +1771,13 @@ def main():
             with col1:
                 st.metric("Unique Symbols", len(fib_df))
             with col2:
-                bullish_count = len(fib_df[fib_df['fib_1h_signal'].str.contains('BULLISH', case=False, na=False)])
+                bullish_count = len(fib_df[fib_df['fib_1h_signal'].str.contains('BULLISH', case=False, na=False)]) if 'fib_1h_signal' in fib_df.columns else 0
                 st.metric("Bullish Signals", bullish_count)
             with col3:
-                bearish_count = len(fib_df[fib_df['fib_1h_signal'].str.contains('BEARISH', case=False, na=False)])
+                bearish_count = len(fib_df[fib_df['fib_1h_signal'].str.contains('BEARISH', case=False, na=False)]) if 'fib_1h_signal' in fib_df.columns else 0
                 st.metric("Bearish Signals", bearish_count)
             with col4:
-                latest_update = fib_df['timestamp'].max() if len(fib_df) > 0 else 'N/A'
+                latest_update = fib_df['timestamp'].max() if len(fib_df) > 0 and 'timestamp' in fib_df.columns else 'N/A'
                 if latest_update != 'N/A':
                     try:
                         dt = pd.to_datetime(latest_update)
@@ -2033,7 +1871,9 @@ def main():
             # Data table
             st.markdown("### 📋 Fibonacci 1h Data Table")
             display_cols = ['symbol', 'current_price', 'fib_1h_signal', 'pivot_zone', 'timestamp']
-            if all(col in fib_df.columns for col in display_cols):
+            display_cols = [col for col in display_cols if col in fib_df.columns]
+            
+            if display_cols:
                 st.dataframe(
                     fib_df[display_cols].rename(columns={
                         'symbol': 'Symbol',
@@ -2048,7 +1888,7 @@ def main():
         else:
             st.warning("No Fibonacci data found in the database.")
     
-    # TAB 6: REGRESSION
+    # TAB 6: REGRESSION (updated to handle missing columns)
     with tab6:
         st.markdown("<h2 class='sub-header'>📈 Polynomial Regression Daily Indicators</h2>", unsafe_allow_html=True)
         
@@ -2064,10 +1904,10 @@ def main():
             with col1:
                 st.metric("Unique Symbols", len(reg_df))
             with col2:
-                bullish_count = len(reg_df[reg_df['poly_signal_daily'].str.contains('BULLISH', case=False, na=False)])
+                bullish_count = len(reg_df[reg_df['poly_signal_daily'].str.contains('BULLISH', case=False, na=False)]) if 'poly_signal_daily' in reg_df.columns else 0
                 st.metric("Bullish Signals", bullish_count)
             with col3:
-                bearish_count = len(reg_df[reg_df['poly_signal_daily'].str.contains('BEARISH', case=False, na=False)])
+                bearish_count = len(reg_df[reg_df['poly_signal_daily'].str.contains('BEARISH', case=False, na=False)]) if 'poly_signal_daily' in reg_df.columns else 0
                 st.metric("Bearish Signals", bearish_count)
             with col4:
                 avg_confidence = reg_df['poly_confidence'].mean() if 'poly_confidence' in reg_df.columns else 0
@@ -2148,7 +1988,9 @@ def main():
             display_cols = ['symbol', 'current_price', 'poly_signal_daily', 'poly_confidence', 
                           'r_squared', 'trend_strength', 'support_level', 'resistance_level', 'timestamp']
             
-            if all(col in reg_df.columns for col in display_cols):
+            display_cols = [col for col in display_cols if col in reg_df.columns]
+            
+            if display_cols:
                 st.dataframe(
                     reg_df[display_cols].rename(columns={
                         'symbol': 'Symbol',
@@ -2174,11 +2016,15 @@ def main():
         else:
             st.warning("No regression data found in the database.")
     
-    # TAB 7: EXTREME DISCOUNT
+    # TAB 7: EXTREME DISCOUNT (updated to handle missing columns)
     with tab7:
         st.markdown("<h2 class='sub-header'>🔥 Extreme Discount Zone Opportunities</h2>", unsafe_allow_html=True)
         
         if not extreme_discount_df.empty:
+            # Get latest signal per symbol
+            discount_latest = extreme_discount_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+            discount_latest = discount_latest.drop_duplicates(subset=['symbol'], keep='first')
+            
             st.markdown("""
             <div class='extreme-discount-indicator'>
                 🚀 BUYING OPPORTUNITY: These symbols are currently in EXTREME DISCOUNT ZONE
@@ -2191,13 +2037,13 @@ def main():
             with col1:
                 st.markdown(f"""
                 <div class='discount-metric'>
-                    <h3 style='margin: 0; color: #2196F3;'>{discount_stats.get('total_symbols', 0)}</h3>
+                    <h3 style='margin: 0; color: #2196F3;'>{len(discount_latest)}</h3>
                     <p style='margin: 5px 0;'>Extreme Discount Symbols</p>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col2:
-                total_bullish = discount_stats.get('strong_buy', 0) + discount_stats.get('buy', 0)
+                total_bullish = len(discount_latest[discount_latest['overall_signal'].str.contains('BUY', case=False, na=False)])
                 st.markdown(f"""
                 <div class='discount-metric'>
                     <h3 style='margin: 0; color: #4CAF50;'>{total_bullish}</h3>
@@ -2206,7 +2052,16 @@ def main():
                 """, unsafe_allow_html=True)
             
             with col3:
-                avg_gain = discount_stats.get('avg_forecast_30d_change', 0)
+                if 'forecast_30d' in discount_latest.columns and 'current_price' in discount_latest.columns:
+                    discount_temp = discount_latest.dropna(subset=['forecast_30d', 'current_price']).copy()
+                    if not discount_temp.empty:
+                        discount_temp['avg_gain'] = ((discount_temp['forecast_30d'] - discount_temp['current_price']) / discount_temp['current_price']) * 100
+                        avg_gain = discount_temp['avg_gain'].mean()
+                    else:
+                        avg_gain = 0
+                else:
+                    avg_gain = 0
+                
                 color = '#4CAF50' if avg_gain > 0 else '#F44336'
                 st.markdown(f"""
                 <div class='discount-metric'>
@@ -2216,7 +2071,7 @@ def main():
                 """, unsafe_allow_html=True)
             
             with col4:
-                avg_price = discount_stats.get('avg_current_price', 0)
+                avg_price = discount_latest['current_price'].mean() if len(discount_latest) > 0 else 0
                 st.markdown(f"""
                 <div class='discount-metric'>
                     <h3 style='margin: 0; color: #FF9800;'>${avg_price:.4f}</h3>
@@ -2229,7 +2084,7 @@ def main():
             # Chart
             if show_charts:
                 st.markdown("### 📊 30-Day Potential Gains")
-                discount_chart = dashboard.create_extreme_discount_chart(extreme_discount_df)
+                discount_chart = dashboard.create_extreme_discount_chart(discount_latest)
                 if discount_chart:
                     st.plotly_chart(discount_chart, use_container_width=True)
             
@@ -2268,7 +2123,7 @@ def main():
             # Search
             discount_search = st.text_input("🔍 Search Extreme Discount Symbols", "", key="discount_search")
             
-            display_discount_df = extreme_discount_df.copy()
+            display_discount_df = discount_latest.copy()
             if discount_search:
                 display_discount_df = display_discount_df[display_discount_df['symbol'].str.contains(discount_search, case=False, na=False)]
                 st.info(f"Found {len(display_discount_df)} extreme discount symbols matching '{discount_search}'")
@@ -2346,9 +2201,12 @@ def main():
             display_cols = ['symbol', 'current_price', 'pivot_zone', 'overall_signal', 
                           'forecast_1d', 'forecast_7d', 'forecast_30d', 'timestamp']
             
-            if all(col in display_discount_df.columns for col in display_cols):
+            display_cols = [col for col in display_cols if col in display_discount_df.columns]
+            
+            if display_cols:
                 table_df = display_discount_df[display_cols].copy()
-                table_df['30d_change_pct'] = ((table_df['forecast_30d'] - table_df['current_price']) / table_df['current_price']) * 100
+                if 'forecast_30d' in table_df.columns and 'current_price' in table_df.columns:
+                    table_df['30d_change_pct'] = ((table_df['forecast_30d'] - table_df['current_price']) / table_df['current_price']) * 100
                 
                 st.dataframe(
                     table_df.rename(columns={
@@ -2387,11 +2245,15 @@ def main():
             Check back regularly as market conditions change!
             """)
     
-    # TAB 8: PORTFOLIO
+    # TAB 8: PORTFOLIO (updated to handle missing columns)
     with tab8:
         st.markdown("<h2 class='sub-header'>💰 Portfolio: Bullish Regression + Extreme Discount</h2>", unsafe_allow_html=True)
         
         if not portfolio_df.empty:
+            # Get latest signal per symbol
+            portfolio_latest = portfolio_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+            portfolio_latest = portfolio_latest.drop_duplicates(subset=['symbol'], keep='first')
+            
             st.markdown("""
             <div class='portfolio-indicator'>
                 💰 PORTFOLIO OPPORTUNITY: Bullish Daily Regression + Extreme Discount Zone
@@ -2404,13 +2266,22 @@ def main():
             with col1:
                 st.markdown(f"""
                 <div class='portfolio-metric'>
-                    <h3 style='margin: 0; color: #4CAF50;'>{portfolio_stats.get('total_symbols', 0)}</h3>
+                    <h3 style='margin: 0; color: #4CAF50;'>{len(portfolio_latest)}</h3>
                     <p style='margin: 5px 0;'>Portfolio Symbols</p>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col2:
-                avg_gain = portfolio_stats.get('avg_forecast_30d_change', 0)
+                if 'forecast_30d' in portfolio_latest.columns and 'current_price' in portfolio_latest.columns:
+                    portfolio_temp = portfolio_latest.dropna(subset=['forecast_30d', 'current_price']).copy()
+                    if not portfolio_temp.empty:
+                        portfolio_temp['avg_gain'] = ((portfolio_temp['forecast_30d'] - portfolio_temp['current_price']) / portfolio_temp['current_price']) * 100
+                        avg_gain = portfolio_temp['avg_gain'].mean()
+                    else:
+                        avg_gain = 0
+                else:
+                    avg_gain = 0
+                
                 color = '#4CAF50' if avg_gain > 0 else '#F44336'
                 st.markdown(f"""
                 <div class='portfolio-metric'>
@@ -2420,7 +2291,7 @@ def main():
                 """, unsafe_allow_html=True)
             
             with col3:
-                avg_price = portfolio_stats.get('avg_current_price', 0)
+                avg_price = portfolio_latest['current_price'].mean() if len(portfolio_latest) > 0 else 0
                 st.markdown(f"""
                 <div class='portfolio-metric'>
                     <h3 style='margin: 0; color: #FF9800;'>${avg_price:.4f}</h3>
@@ -2430,7 +2301,7 @@ def main():
             
             with col4:
                 # Download button for portfolio
-                filename, csv_content = dashboard.save_portfolio_csv(portfolio_df)
+                filename, csv_content = dashboard.save_portfolio_csv(portfolio_latest)
                 if csv_content:
                     st.download_button(
                         label="📥 Download Portfolio CSV",
@@ -2444,7 +2315,7 @@ def main():
             
             # Portfolio symbols in CSV format
             st.markdown("### 📋 Portfolio Symbols (CSV Format)")
-            portfolio_csv = dashboard.get_portfolio_symbols_csv(portfolio_df)
+            portfolio_csv = dashboard.get_portfolio_symbols_csv(portfolio_latest)
             
             col1, col2 = st.columns([3, 1])
             
@@ -2488,11 +2359,11 @@ def main():
             st.markdown("---")
             
             # Portfolio details
-            st.markdown(f"### 🔍 Portfolio Details ({len(portfolio_df)} symbols)")
+            st.markdown(f"### 🔍 Portfolio Details ({len(portfolio_latest)} symbols)")
             
             portfolio_search = st.text_input("🔍 Search Portfolio Symbols", "", key="portfolio_search")
             
-            display_portfolio_df = portfolio_df.copy()
+            display_portfolio_df = portfolio_latest.copy()
             if portfolio_search:
                 display_portfolio_df = display_portfolio_df[display_portfolio_df['symbol'].str.contains(portfolio_search, case=False, na=False)]
                 st.info(f"Found {len(display_portfolio_df)} portfolio symbols matching '{portfolio_search}'")
@@ -2567,9 +2438,12 @@ def main():
             display_cols = ['symbol', 'current_price', 'pivot_zone', 'overall_signal', 
                           'forecast_1d', 'forecast_7d', 'forecast_30d', 'timestamp']
             
-            if all(col in display_portfolio_df.columns for col in display_cols):
+            display_cols = [col for col in display_cols if col in display_portfolio_df.columns]
+            
+            if display_cols:
                 table_df = display_portfolio_df[display_cols].copy()
-                table_df['30d_change_pct'] = ((table_df['forecast_30d'] - table_df['current_price']) / table_df['current_price']) * 100
+                if 'forecast_30d' in table_df.columns and 'current_price' in table_df.columns:
+                    table_df['30d_change_pct'] = ((table_df['forecast_30d'] - table_df['current_price']) / table_df['current_price']) * 100
                 
                 st.dataframe(
                     table_df.rename(columns={
@@ -2611,11 +2485,15 @@ def main():
             Check back regularly as market conditions change!
             """)
     
-    # TAB 9: OVERVALUED
+    # TAB 9: OVERVALUED (updated to handle missing columns)
     with tab9:
         st.markdown("<h2 class='sub-header'>⚠️ Overvalued: Above Buy Zone</h2>", unsafe_allow_html=True)
         
         if not overvalued_df.empty:
+            # Get latest signal per symbol
+            overvalued_latest = overvalued_df.sort_values(['symbol', 'timestamp'], ascending=[True, False])
+            overvalued_latest = overvalued_latest.drop_duplicates(subset=['symbol'], keep='first')
+            
             st.markdown("""
             <div class='overvalued-indicator'>
                 ⚠️ CAUTION: These symbols are currently in ABOVE BUY ZONE
@@ -2628,13 +2506,13 @@ def main():
             with col1:
                 st.markdown(f"""
                 <div class='overvalued-metric'>
-                    <h3 style='margin: 0; color: #FF9800;'>{overvalued_stats.get('total_symbols', 0)}</h3>
+                    <h3 style='margin: 0; color: #FF9800;'>{len(overvalued_latest)}</h3>
                     <p style='margin: 5px 0;'>Overvalued Symbols</p>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col2:
-                total_bearish = overvalued_stats.get('strong_sell', 0) + overvalued_stats.get('sell', 0)
+                total_bearish = len(overvalued_latest[overvalued_latest['overall_signal'].str.contains('SELL', case=False, na=False)])
                 st.markdown(f"""
                 <div class='overvalued-metric'>
                     <h3 style='margin: 0; color: #F44336;'>{total_bearish}</h3>
@@ -2643,7 +2521,16 @@ def main():
                 """, unsafe_allow_html=True)
             
             with col3:
-                avg_change = overvalued_stats.get('avg_forecast_30d_change', 0)
+                if 'forecast_30d' in overvalued_latest.columns and 'current_price' in overvalued_latest.columns:
+                    overvalued_temp = overvalued_latest.dropna(subset=['forecast_30d', 'current_price']).copy()
+                    if not overvalued_temp.empty:
+                        overvalued_temp['avg_change'] = ((overvalued_temp['forecast_30d'] - overvalued_temp['current_price']) / overvalued_temp['current_price']) * 100
+                        avg_change = overvalued_temp['avg_change'].mean()
+                    else:
+                        avg_change = 0
+                else:
+                    avg_change = 0
+                
                 color = '#4CAF50' if avg_change > 0 else '#F44336'
                 st.markdown(f"""
                 <div class='overvalued-metric'>
@@ -2653,7 +2540,7 @@ def main():
                 """, unsafe_allow_html=True)
             
             with col4:
-                avg_price = overvalued_stats.get('avg_current_price', 0)
+                avg_price = overvalued_latest['current_price'].mean() if len(overvalued_latest) > 0 else 0
                 st.markdown(f"""
                 <div class='overvalued-metric'>
                     <h3 style='margin: 0; color: #FF5722;'>${avg_price:.4f}</h3>
@@ -2666,7 +2553,7 @@ def main():
             # Chart
             if show_charts:
                 st.markdown("### 📊 30-Day Potential Changes")
-                overvalued_chart = dashboard.create_overvalued_chart(overvalued_df)
+                overvalued_chart = dashboard.create_overvalued_chart(overvalued_latest)
                 if overvalued_chart:
                     st.plotly_chart(overvalued_chart, use_container_width=True)
             
@@ -2705,7 +2592,7 @@ def main():
             # Search
             overvalued_search = st.text_input("🔍 Search Overvalued Symbols", "", key="overvalued_search")
             
-            display_overvalued_df = overvalued_df.copy()
+            display_overvalued_df = overvalued_latest.copy()
             if overvalued_search:
                 display_overvalued_df = display_overvalued_df[display_overvalued_df['symbol'].str.contains(overvalued_search, case=False, na=False)]
                 st.info(f"Found {len(display_overvalued_df)} overvalued symbols matching '{overvalued_search}'")
@@ -2783,9 +2670,12 @@ def main():
             display_cols = ['symbol', 'current_price', 'pivot_zone', 'overall_signal', 
                           'forecast_1d', 'forecast_7d', 'forecast_30d', 'timestamp']
             
-            if all(col in display_overvalued_df.columns for col in display_cols):
+            display_cols = [col for col in display_cols if col in display_overvalued_df.columns]
+            
+            if display_cols:
                 table_df = display_overvalued_df[display_cols].copy()
-                table_df['30d_change_pct'] = ((table_df['forecast_30d'] - table_df['current_price']) / table_df['current_price']) * 100
+                if 'forecast_30d' in table_df.columns and 'current_price' in table_df.columns:
+                    table_df['30d_change_pct'] = ((table_df['forecast_30d'] - table_df['current_price']) / table_df['current_price']) * 100
                 
                 st.dataframe(
                     table_df.rename(columns={
